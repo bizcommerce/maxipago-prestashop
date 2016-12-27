@@ -57,6 +57,15 @@
                         </td>
                     </tr>
 
+                    {if $response_message == 'AUTHORIZED'}
+                        <tr>
+                            <td>{l s='Ações' mod='maxipago'}</td>
+                            <td>
+                                <a href="{$update_url}">{l s='Atualizar Status do Pedido' mod='maxipago'}</a>
+                            </td>
+                        </tr>
+                    {/if}
+
                     <tr>
                         <td>{l s='ID da transação' mod='maxipago'}</td>
                         <td>{$return->transactionID|escape:'htmlall':'UTF-8'}</td>
@@ -76,7 +85,7 @@
                         </tr>
                     {/if}
 
-                    {if $return->responseMessage == 'ISSUED' || $return->responseMessage == 'AUTHORIZED'}
+                    {if $response_message == 'ISSUED'}
                         <tr>
                             <td>{l s='Ações' mod='maxipago'}</td>
                             <td>
