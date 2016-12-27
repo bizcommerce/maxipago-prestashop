@@ -517,7 +517,7 @@ class Maxipago extends PaymentModule
                     $return = json_decode($transaction['return']);
 
                     $search = array(
-                        'transactionID' => $return->transactionID
+                        'orderID' => $return->orderID
                     );
 
                     $this->getMaxipago()->pullReport($search);
@@ -526,8 +526,8 @@ class Maxipago extends PaymentModule
 
                     $state = isset($response[0]['transactionState']) ? $response[0]['transactionState'] : null;
 
-                    if ($state) {
-                        $id_order_ps = $transaction['id_order'];
+                    $id_order_ps = $transaction['id_order'];
+                    if ($state && $id_order_ps) {
                         if ($state == '10' || $state == '3') {
                             $this->updateOrderHistory($id_order_ps, Configuration::get('MAXIPAGO_ORDER_CODE_PAID'));
                         } else if ($state == '45' || $state == '7' || $state == '9') {
@@ -551,11 +551,11 @@ class Maxipago extends PaymentModule
         } else {
             $mail = false;
         }
-
         /** @var OrderHistoryCore $history */
         $history = new OrderHistory();
         $history->id_order = (int)$id_order;
         $history->changeIdOrderState((int)$status, (int)$id_order, true);
+
         if ($mail) {
             $history->addWithemail(true, array());
         }
@@ -1258,10 +1258,11 @@ class Maxipago extends PaymentModule
                 $return = json_decode($transaction['return']);
 
                 $search = array(
-                    'transactionID' => $return->transactionID
+                    'orderID' => $return->orderID
                 );
 
                 $this->getMaxipago()->pullReport($search);
+                $this->log($this->getMaxipago()->response);
                 $response = $this->getMaxipago()->getReportResult();
 
             }

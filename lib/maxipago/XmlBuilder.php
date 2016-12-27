@@ -338,6 +338,8 @@ class maxiPago_XmlBuilder extends maxiPago_RequestBase
         $this->xml->request->addChild("filterOptions");
         if (strlen($this->transactionID) > 0) {
             $this->xml->request->filterOptions->addChild("transactionId", $this->transactionID);
+        } elseif (strlen($this->orderID) > 0) {
+            $this->xml->request->filterOptions->addChild("orderId", $this->orderID);
         } elseif (strtolower($this->period) == "range") {
             $this->xml->request->filterOptions->addChild("period", $this->period);
             $this->xml->request->filterOptions->addChild("pageSize", $this->pageSize);

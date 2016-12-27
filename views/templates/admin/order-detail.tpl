@@ -76,7 +76,7 @@
                         </tr>
                     {/if}
 
-                    {if $return->responseMessage == 'ISSUED'}
+                    {if $return->responseMessage == 'ISSUED' || $return->responseMessage == 'AUTHORIZED'}
                         <tr>
                             <td>{l s='Ações' mod='maxipago'}</td>
                             <td>
