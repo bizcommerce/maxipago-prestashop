@@ -31,6 +31,16 @@ if (!defined('_PS_VERSION_'))
 class Maxipago extends PaymentModule
 {
 
+    public $maxiPagoVersion = '0.2.0';
+    public $details;
+    public $owner;
+    public $address;
+    public $extra_mail_vars;
+    public $mp_url;
+    protected $_html = '';
+    protected $_postErrors = array();
+    protected $_maxiPago;
+
     /**
      * Order states to create when enable the module
      */
@@ -146,16 +156,6 @@ class Maxipago extends PaymentModule
         '45' => 'Fraud Declined',
         '46' => 'Fraud Review'
     );
-
-    public $maxiPagoVersion = '0.1.1';
-    public $details;
-    public $owner;
-    public $address;
-    public $extra_mail_vars;
-    public $mp_url;
-    protected $_html = '';
-    protected $_postErrors = array();
-    protected $_maxiPago;
 
     public function __construct()
     {
@@ -329,6 +329,7 @@ class Maxipago extends PaymentModule
               `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
               `id_order` INT(10) UNSIGNED NOT NULL ,
               `boleto_url` VARCHAR(255) NULL ,
+              `online_debit_url` VARCHAR(255) NULL,
               `method` VARCHAR(255) NOT NULL, 
               `request` TEXT NOT NULL ,
               `return` TEXT NOT NULL ,
@@ -493,7 +494,10 @@ class Maxipago extends PaymentModule
         if (trim($sId) && $sId == Configuration::get('MAXIPAGO_SELLER_ID')) {
 
             $searchStatues = array(
-                '"ISSUED"',
+                '"BOLETO ISSUED"',
+                '"BOLETO VIEWED"',
+                '"PENDING"',
+                '"PENDING CONFIRMATION"',
                 '"AUTHORIZED"'
             );
 
@@ -528,7 +532,7 @@ class Maxipago extends PaymentModule
 
                     $id_order_ps = $transaction['id_order'];
                     if ($state && $id_order_ps) {
-                        if ($state == '10' || $state == '3') {
+                        if ($state == '10' || $state == '3' || $state == '44') {
                             $this->updateOrderHistory($id_order_ps, Configuration::get('MAXIPAGO_ORDER_CODE_PAID'));
                         } else if ($state == '45' || $state == '7' || $state == '9') {
                             $this->updateOrderHistory($id_order_ps, Configuration::get('MAXIPAGO_ORDER_CODE_CANCELED'));
@@ -803,6 +807,7 @@ class Maxipago extends PaymentModule
             return;
 
         $boletoUrl = null;
+        $onlineDebitUrl = null;
         $method = null;
         $request = null;
         $response = null;
@@ -815,6 +820,7 @@ class Maxipago extends PaymentModule
 
         if ($transaction = Db::getInstance()->getRow($sql)) {
             $boletoUrl = $transaction['boleto_url'];
+            $onlineDebitUrl = $transaction['online_debit_url'];
             $method = $transaction['method'];
 
             $request = json_decode($transaction['request']);
@@ -848,6 +854,7 @@ class Maxipago extends PaymentModule
                 'response' => $response,
                 'status' => $status,
                 'boleto_url' => $boletoUrl,
+                'online_debit_url' => $onlineDebitUrl,
                 'method' => $method
             )
         );
@@ -885,6 +892,7 @@ class Maxipago extends PaymentModule
             $return = json_decode($orderData['return']);
 
             $boletoUrl = $orderData['boleto_url'];
+            $onlineDebitUrl = $orderData['online_debit_url'];
             $method = $orderData['method'];
 
             $status = $this->_getOrderStatus($return->responseCode, $orderData['response_message']);
@@ -894,6 +902,7 @@ class Maxipago extends PaymentModule
                     'method' => $orderData['method'],
                     'status' => $status,
                     'boleto_url' => $boletoUrl,
+                    'online_debit_url' => $onlineDebitUrl,
                     'request' => $request,
                     'update_url' => $updateUrl,
                     'return' => $return,
@@ -928,6 +937,7 @@ class Maxipago extends PaymentModule
             $return = json_decode($orderData['return']);
 
             $boletoUrl = $orderData['boleto_url'];
+            $onlineDebitUrl = $orderData['online_debit_url'];
             $method = $orderData['method'];
 
             $status = $this->_getOrderStatus($return->responseCode, $orderData['response_message']);
@@ -937,6 +947,7 @@ class Maxipago extends PaymentModule
                     'method' => $orderData['method'],
                     'status' => $status,
                     'boleto_url' => $boletoUrl,
+                    'online_debit_url' => $onlineDebitUrl,
                     'request' => $request,
                     'return' => $return,
                     'response_message' => $orderData['response_message']
@@ -961,7 +972,6 @@ class Maxipago extends PaymentModule
 
         if ($transaction = Db::getInstance()->getRow($sql)) {
 
-            $boletoUrl = $transaction['boleto_url'];
             $method = $transaction['method'];
 
             if ($method == 'card') {
@@ -1140,7 +1150,7 @@ class Maxipago extends PaymentModule
         $minimumPerInstallment = Configuration::get('MAXIPAGO_CC_MINIMUM_PER_INSTALLMENTS');
         $interestRate = str_replace(',', '.', Configuration::get('MAXIPAGO_CC_INTEREST_RATE'));
 
-        if (($minimumPerInstallment = $minimumPerInstallment) > 0) {
+        if ($minimumPerInstallment > 0) {
             while ($maxInstallments > ($price / $minimumPerInstallment)) $maxInstallments--;
         }
         $installments = array();
@@ -1281,6 +1291,7 @@ class Maxipago extends PaymentModule
             $state = isset($response[0]['transactionState']) ? $response[0]['transactionState'] : null;
             $responseMessage = (array_key_exists($state, $this->_transactionStates)) ? $this->_transactionStates[$state] : $return->responseMessage;
             $return->responseMessage = $responseMessage;
+            $return->transactionState = $state;
             $transaction['response_message'] = $responseMessage;
 
             $sql = 'UPDATE ' . _DB_PREFIX_ . 'maxipago_transactions 
@@ -1299,7 +1310,7 @@ class Maxipago extends PaymentModule
     {
         $defaultStatus = $this->l('Aguardando Confirmação de Pagamento');
 
-        if ($responseMessage == 'PENDING') {
+        if ($responseMessage == 'PENDING' || $responseMessage == 'PENDING CONFIRMATION') {
             $status = $defaultStatus;
         } else {
             if ($responseCode == 0 && $responseMessage == 'AUTHORIZED') {

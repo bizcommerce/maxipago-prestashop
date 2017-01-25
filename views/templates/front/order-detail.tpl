@@ -22,6 +22,14 @@
                         {$status}
                     </td>
                 </tr>
+                {if $return->onlineDebitUrl && $response_message == 'PENDING'}
+                    <tr>
+                        <td>{l s='Link para pagamento' mod='maxipago'}</td>
+                        <td>
+                            <a href="{$return->onlineDebitUrl}" target="_blank">{l s='Clique aqui para finalizar seu pedido!' mod='maxipago'}</a>
+                        </td>
+                    </tr>
+                {/if}
             {else}
                 {if $method == 'card'}
                     <tr>

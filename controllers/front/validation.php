@@ -93,7 +93,6 @@ class MaxipagoValidationModuleFrontController extends ModuleFrontController
 
         $this->module->validateOrder($cart->id, Configuration::get('MAXIPAGO_ORDER_CODE_PENDING'), $total, $this->module->displayName, NULL, NULL, NULL, false, $customer->secure_key);
 
-        $boletoUrl = null;
         switch ($method) {
             case 'boleto':
                 $this->_boletoMethod($total);
@@ -103,10 +102,6 @@ class MaxipagoValidationModuleFrontController extends ModuleFrontController
                 break;
             case 'tef':
                 $response = $this->_tefMethod($total);
-                if (isset($response['onlineDebitUrl'])) {
-                    Tools::redirect($response['onlineDebitUrl']);
-                    return;
-                }
                 break;
         }
 
@@ -126,11 +121,11 @@ class MaxipagoValidationModuleFrontController extends ModuleFrontController
 
             $isSandbox = Configuration::get('MAXIPAGO_SANDBOX');
 
-            $dayToExpire = Configuration::get('MAXIPAGO_BOLETO_DAYS_TO_EXPIRE');
+            $dayToExpire = (int) Configuration::get('MAXIPAGO_BOLETO_DAYS_TO_EXPIRE');
             $instructions = Configuration::get('MAXIPAGO_BOLETO_INSTRUCTIONS');
 
             $date = new DateTime();
-            $date->modify('+5 days');
+            $date->modify('+' . $dayToExpire . ' days');
             $expirationDate = $date->format('Y-m-d');
 
             $boletoBank = $isSandbox ? 12 : Configuration::get('MAXIPAGO_BOLETO_BANK');
@@ -303,7 +298,7 @@ class MaxipagoValidationModuleFrontController extends ModuleFrontController
                         'billingCity' => $address['city'],
                         'billingState' => $address['state'],
                         'billingZip' => $address['postcode'],
-                        'billingPhone' => $address['postcode'],
+                        'billingPhone' => $address['phone'],
                         'billingEmail' => $customer->email,
                         'onFileEndDate' => $endDate,
                         'onFilePermissions' => 'ongoing',
@@ -391,11 +386,15 @@ class MaxipagoValidationModuleFrontController extends ModuleFrontController
             $this->module->log(htmlspecialchars($this->module->getMaxipago()->xmlResponse));
 
             $response = $this->module->getMaxipago()->response;
-            $this->_saveTransaction('tef', $data, $response);
+
+            $onlineDebitUrl = isset($response['onlineDebitUrl']) ? $response['onlineDebitUrl'] : null;
+            if (!$onlineDebitUrl) {
+                $error = isset($response['errorMessage']) ? $response['errorMessage'] : null;
+                die($this->module->l($error));
+            }
+            $this->_saveTransaction('tef', $data, $response, $onlineDebitUrl);
 
         }
-
-        return $response;
 
     }
 
@@ -466,10 +465,22 @@ class MaxipagoValidationModuleFrontController extends ModuleFrontController
      * @param $method
      * @param $request
      * @param $return
-     * @param null $boletoUrl
+     * @param null $transactionUrl
+     * @param boolean $hasOrder
      */
-    protected function _saveTransaction($method, $request, $return, $boletoUrl = null, $hasOrder = true)
+    protected function _saveTransaction($method, $request, $return, $transactionUrl = null, $hasOrder = true)
     {
+        $onlineDebitUrl = null;
+        $boletoUrl = null;
+
+        if ($transactionUrl) {
+            if ($method == 'tef') {
+                $onlineDebitUrl = $transactionUrl;
+            } else if ($method == 'boleto') {
+                $boletoUrl = $transactionUrl;
+            }
+        }
+
         if (is_object($request) || is_array($request)) {
 
             if (isset($request['number'])) {
@@ -500,9 +511,9 @@ class MaxipagoValidationModuleFrontController extends ModuleFrontController
         $this->module->log($return);
 
         $sql = 'INSERT INTO `' . _DB_PREFIX_ . 'maxipago_transactions` 
-                    (`id_order`, `boleto_url`, `method`, `request`, `return`, `response_message`)
+                    (`id_order`, `boleto_url`, `online_debit_url`, `method`, `request`, `return`, `response_message`)
                 VALUES
-                    ("' . pSQL($id_order) . '", "' . pSQL($boletoUrl) . '", "' . pSQL($method) . '" ,"' . pSQL($request) . '", "' . pSQL($return) . '", "' . $responseMessage . '" )
+                    ("' . pSQL($id_order) . '", "' . pSQL($boletoUrl) . '",  "' . pSQL($onlineDebitUrl) . '", "' . pSQL($method) . '" ,"' . pSQL($request) . '", "' . pSQL($return) . '", "' . $responseMessage . '" )
                 ';
 
         if (! Db::getInstance()->Execute($sql)) {

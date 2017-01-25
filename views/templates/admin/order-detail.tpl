@@ -21,7 +21,26 @@
                     <td>
                         {$status}
                     </td>
+
                 </tr>
+
+                {if $return->onlineDebitUrl}
+                    <tr>
+                        <td>{l s='Link para pagamento' mod='maxipago'}</td>
+                        <td>
+                            <a href="{$return->onlineDebitUrl}" target="_blank">{$return->onlineDebitUrl}</a>
+                        </td>
+                    </tr>
+                {/if}
+
+                {if $response_message == 'PENDING' || $response_message == 'PENDING CONFIRMATION'}
+                    <tr>
+                        <td>{l s='Ações' mod='maxipago'}</td>
+                        <td>
+                            <a href="{$update_url}">{l s='Atualizar Status do Pedido' mod='maxipago'}</a>
+                        </td>
+                    </tr>
+                {/if}
             {else}
                 {if $method == 'card'}
                     <tr>
@@ -85,7 +104,7 @@
                         </tr>
                     {/if}
 
-                    {if $response_message == 'ISSUED'}
+                    {if $response_message == 'BOLETO ISSUED'  || $response_message == 'BOLETO VIEWED'}
                         <tr>
                             <td>{l s='Ações' mod='maxipago'}</td>
                             <td>
