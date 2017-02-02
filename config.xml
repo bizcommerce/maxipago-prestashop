@@ -2,8 +2,8 @@
 <module>
     <name>maxipago</name>
     <displayName><![CDATA[maxiPago!]]></displayName>
-    <version><![CDATA[0.1.0]]></version>
-    <description><![CDATA[Receive payments with "Boleto Bancario" and Credit Card using maxiPago!]]></description>
+    <version><![CDATA[0.2.0]]></version>
+    <description><![CDATA[Receive payments with "Boleto Bancario", Credit Card and EFT (TEF) using maxiPago!]]></description>
     <author><![CDATA[maxiPago!]]></author>
     <tab><![CDATA[payments_gateways]]></tab>
     <confirmUninstall><![CDATA[Are you sure you want to uninstall maxiPago!?]]></confirmUninstall>
